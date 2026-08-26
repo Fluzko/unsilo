@@ -1,0 +1,32 @@
+[package]
+name = "unsilo"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "One view of your Claude Code conversations, whatever account you are signed in with"
+
+[lints]
+workspace = true
+
+[dependencies]
+camino.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rusqlite.workspace = true
+thiserror.workspace = true
+sha2.workspace = true
+tar.workspace = true
+zstd.workspace = true
+walkdir.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true
+
+[dev-dependencies]
+unsilo-testkit.workspace = true
+tempfile.workspace = true
+assert_cmd.workspace = true
+predicates.workspace = true

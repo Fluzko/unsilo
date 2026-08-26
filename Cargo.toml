@@ -1,0 +1,65 @@
+[workspace]
+resolver = "3"
+members = ["crates/unsilo", "crates/unsilo-testkit"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+repository = "https://github.com/Fluzko/unsilo"
+
+[workspace.dependencies]
+unsilo = { path = "crates/unsilo", version = "0.1.0" }
+unsilo-testkit = { path = "crates/unsilo-testkit", version = "0.1.0" }
+camino = { version = "1.1", features = ["serde1"] }
+clap = { version = "4", features = ["derive", "env"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.37", features = ["bundled"] }
+thiserror = "2"
+sha2 = "0.10"
+tar = "0.4"
+zstd = "0.13"
+walkdir = "2"
+tempfile = "3"
+assert_cmd = "2"
+predicates = "3"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_FileSystem"] }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+exit = "deny"
+dbg_macro = "deny"
+todo = "deny"
+indexing_slicing = "warn"
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+return_self_not_must_use = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+strip = true
+lto = "thin"
+codegen-units = 1
+
+[workspace.metadata.dist]
+targets = [
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+  "x86_64-unknown-linux-musl",
+  "aarch64-unknown-linux-gnu",
+  "x86_64-pc-windows-msvc",
+]
+installers = ["shell", "powershell"]

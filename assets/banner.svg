@@ -1,0 +1,28 @@
+<svg width="820" height="180" viewBox="0 0 820 180" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="820" height="180" rx="24" fill="#17130f"/>
+
+  <g transform="translate(28,26) scale(0.246)">
+    <rect x="96" y="246" width="320" height="20" rx="10" fill="#e8763c"/>
+    <rect x="128" y="140" width="64" height="232" rx="32"
+          fill="none" stroke="#6b6455" stroke-width="10" opacity="0.55"/>
+    <rect x="320" y="140" width="64" height="232" rx="32"
+          fill="none" stroke="#6b6455" stroke-width="10" opacity="0.55"/>
+    <rect x="224" y="140" width="64" height="232" rx="32"
+          fill="#17130f" stroke="#e8763c" stroke-width="12"/>
+    <circle cx="160" cy="256" r="15" fill="#17130f"/>
+    <circle cx="160" cy="256" r="8" fill="#e8763c"/>
+    <circle cx="256" cy="256" r="15" fill="#17130f"/>
+    <circle cx="256" cy="256" r="8" fill="#e8763c"/>
+    <circle cx="352" cy="256" r="15" fill="#17130f"/>
+    <circle cx="352" cy="256" r="8" fill="#e8763c"/>
+  </g>
+
+  <text x="160" y="92" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="52" font-weight="700">
+    <tspan fill="#6b6455">un</tspan><tspan fill="#f2efea">silo</tspan>
+  </text>
+  <text x="160" y="128" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="20" fill="#948c7a">
+    one view of every Claude Code conversation
+  </text>
+</svg>

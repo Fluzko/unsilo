@@ -1,0 +1,8 @@
+* text=auto eol=lf
+
+# Byte offsets matter: head/tail parsing reads fixed windows, so a CRLF
+# rewrite on Windows checkout shifts every offset and breaks the parsers.
+*.jsonl -text
+*.json  -text
+crates/unsilo-testkit/fixtures/** -text
+crates/unsilo/tests/fixtures/** -text

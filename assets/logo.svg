@@ -1,0 +1,28 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="512" height="512" rx="96" fill="#17130f"/>
+
+  <!-- link bar threading through the three silos -->
+  <rect x="96" y="246" width="320" height="20" rx="10" fill="#e8763c"/>
+
+  <!-- outer silo (muted, still siloed) -->
+  <rect x="128" y="140" width="64" height="232" rx="32"
+        fill="none" stroke="#6b6455" stroke-width="10" opacity="0.55"/>
+
+  <!-- outer silo (muted, still siloed) -->
+  <rect x="320" y="140" width="64" height="232" rx="32"
+        fill="none" stroke="#6b6455" stroke-width="10" opacity="0.55"/>
+
+  <!-- center silo, unified -->
+  <rect x="224" y="140" width="64" height="232" rx="32"
+        fill="#17130f" stroke="#e8763c" stroke-width="12"/>
+
+  <!-- rivet nodes where the link meets each silo -->
+  <circle cx="160" cy="256" r="15" fill="#17130f"/>
+  <circle cx="160" cy="256" r="8" fill="#e8763c"/>
+
+  <circle cx="256" cy="256" r="15" fill="#17130f"/>
+  <circle cx="256" cy="256" r="8" fill="#e8763c"/>
+
+  <circle cx="352" cy="256" r="15" fill="#17130f"/>
+  <circle cx="352" cy="256" r="8" fill="#e8763c"/>
+</svg>

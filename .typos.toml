@@ -1,0 +1,3 @@
+[default.extend-words]
+# Expected output of the UTF-16 slug test: "/café" becomes "-caf-".
+caf = "caf"

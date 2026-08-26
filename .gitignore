@@ -1,0 +1,6 @@
+target/
+**/*.rs.bk
+*.pending-snap
+lcov.info
+junit.xml
+.claude/

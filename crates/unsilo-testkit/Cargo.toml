@@ -1,0 +1,19 @@
+[package]
+name = "unsilo-testkit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Fixture worlds and tree digests for testing unsilo"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+unsilo.workspace = true
+camino.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
