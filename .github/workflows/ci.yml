@@ -32,6 +32,9 @@ jobs:
       # version it currently points at, so a release still uploading its
       # binaries returns a 404 and fails a build that has nothing wrong with it.
       - uses: crate-ci/typos@v1.49.1
+      # The install script is the first thing a stranger runs, so it is held to
+      # the same bar as the code.
+      - run: shellcheck install.sh
 
   test:
     strategy:
