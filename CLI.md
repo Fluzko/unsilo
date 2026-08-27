@@ -79,7 +79,7 @@ AND between different flags, OR between repetitions of the same one.
 
 ### `--email` and `--account` mean **origin**
 
-*(Changed from the original design.)* After an `apply`, a session from account A
+_(Changed from the original design.)_ After an `apply`, a session from account A
 has an entry under account B. If the filter counted that entry,
 `apply --email B` would select the sessions the apply itself projected and prune
 nothing.
@@ -146,10 +146,10 @@ unsilo doctor [--json] [--strict]
 unsilo doctor
 
 layout
-  cli config dir      /Users/facundo/.claude
+  cli config dir      /Users/jdoe/.claude
                       132 conversations, 40 project dirs, 143.6 MB
                       109 subagent transcripts (not conversations)
-  desktop userData    /Users/facundo/Library/Application Support/Claude
+  desktop userData    /Users/jdoe/Library/Application Support/Claude
   cli versions        2.1.220 (49), 2.1.237 (20), 2.1.228 (17)
   storage backend     local files
   writes              allowed
@@ -157,8 +157,8 @@ layout
 accounts
   1e3fc9c4  (email unresolved)
             9410ab45  (unnamed)      4 sessions, 5 deleted
-  81774974  fnluzko@gmail.com                 ACTIVE
-            06f92962  fnluzko@gmail.com's Org 5 sessions, 0 deleted  <-
+  81774974  your@email.com                 ACTIVE
+            06f92962  your@email.com's Org 5 sessions, 0 deleted  <-
 
   2 desktop sessions NOT visible under the active account
 
@@ -173,7 +173,7 @@ retention
   at risk             0 transcripts, 0 B
 
 store
-  /Users/facundo/.unsilo
+  /Users/jdoe/.unsilo
   hardlinks           viable (same volume)
   contents            1 transcripts, 0 ledger entries
 
@@ -199,8 +199,8 @@ and first prompt.
 
 ```
 ID        DATE        PROJECT                      SIZE      ACCOUNT            TITLE
-3db70634  2026-08-26  ~/code/projects              1.9 MB    fnluzko@gmail.com  Unsilo conversation repository
-54e36768  2026-08-24  ~/code/projects              67.9 KB   fnluzko@gmail.com  Conversations do not refresh
+3db70634  2026-08-26  ~/code/projects              1.9 MB    your@email.com  Unsilo conversation repository
+54e36768  2026-08-24  ~/code/projects              67.9 KB   your@email.com  Conversations do not refresh
 2e6ec2ab  2026-08-24  ~                            13.8 KB   (cli only)         (untitled)
 
   3 of 131 sessions
@@ -213,7 +213,7 @@ rather than "3 of 3".
 
 ```
 $ unsilo find --id 536e11e3 --format resume
-cd /Users/facundo/code/luzu && claude --resume 536e11e3-5219-43dc-ad1c-f199b32ef91c
+cd /Users/jdoe/code/luzu && claude --resume 536e11e3-5219-43dc-ad1c-f199b32ef91c
 ```
 
 `--format paths` gives one transcript path per line. `--format json` gives the
@@ -251,7 +251,7 @@ Before writing it captures the baseline (if absent) and an automatic snapshot.
 ```
 unsilo apply --dry-run
 
-  active account  81774974 / 06f92962  (fnluzko@gmail.com)
+  active account  81774974 / 06f92962  (your@email.com)
   selected        131
 
   desktop
@@ -315,7 +315,7 @@ anything.
 
 ### Relinked transcripts are not removed
 
-*(Changed from the original design.)* A transcript put back from the store is
+_(Changed from the original design.)_ A transcript put back from the store is
 **Claude's own** file returned to where Claude expects it, the same category as a
 `restore`. Removing it on `off` would delete a conversation the user can see,
 which is the opposite of turning a tool off. That is why it is not recorded in
@@ -347,7 +347,14 @@ inside the store, which is what makes it safe in a session start hook:
 {
   "hooks": {
     "SessionStart": [
-      { "hooks": [{ "type": "command", "command": "unsilo label --learn >/dev/null 2>&1 || true" }] }
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "unsilo label --learn >/dev/null 2>&1 || true"
+          }
+        ]
+      }
     ]
   }
 }
@@ -387,7 +394,7 @@ are byte identical.
 
 ### Format
 
-*(Changed from the original design.)* This document said the archive would use the
+_(Changed from the original design.)_ This document said the archive would use the
 desktop's native export shape, to interoperate. A format of its own was used:
 
 ```

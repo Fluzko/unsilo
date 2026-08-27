@@ -49,7 +49,7 @@ mod tests {
 
     #[test]
     fn separators_and_punctuation_become_dashes() {
-        assert_eq!(slug("/Users/facundo/code").as_deref(), Some("-Users-facundo-code"));
+        assert_eq!(slug("/Users/jdoe/code").as_deref(), Some("-Users-jdoe-code"));
     }
 
     #[test]
