@@ -316,7 +316,14 @@ inside unsilo's own store, which is what makes it safe here:
 {
   "hooks": {
     "SessionStart": [
-      { "hooks": [{ "type": "command", "command": "unsilo label --learn >/dev/null 2>&1 || true" }] }
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "unsilo label --learn >/dev/null 2>&1 || true"
+          }
+        ]
+      }
     ]
   }
 }
@@ -346,28 +353,3 @@ a real machine, so no conversation content reaches the repository.
 version. Cargo drops a path-only dev-dependency when publishing, which is what
 lets the binary crate go to crates.io while its fixture crate stays here. Adding
 a version to that dependency is what breaks it.
-
-### Releasing
-
-```bash
-cargo publish -p unsilo          # crates.io
-git tag -a vX.Y.Z && git push origin vX.Y.Z   # binaries, via .github/workflows/release.yml
-```
-
-Rehearse the binaries first with `gh workflow run release.yml`: it builds every
-target and uploads the artifacts without creating a release, since the publish
-job only runs for a tag.
-
-The test that matters:
-
-```rust
-let before = w.claude_digest();
-apply::run(...)?;
-assert!(applied.changes() > 0, "apply made no changes, the test proves nothing");
-off::run(...)?;
-assert_eq!(before, w.claude_digest());
-```
-
-It compares content, permissions **and which paths share an inode**: a leaked
-hard link changes no bytes, so without that the test would pass while leaking
-files.
