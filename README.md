@@ -46,41 +46,6 @@ Picks the build for your platform, checks it against the published sha256 before
 unpacking it, and puts the binary in `~/.local/bin`. `UNSILO_INSTALL_DIR` and
 `UNSILO_VERSION` override where and which.
 
-Piping a script into a shell means running whatever that URL serves. If you would
-rather read it first, which is reasonable:
-
-```bash
-curl -fsSL -O https://raw.githubusercontent.com/Fluzko/unsilo/main/install.sh
-less install.sh && sh install.sh
-```
-
-Or take the archive yourself from the
-[latest release](https://github.com/Fluzko/unsilo/releases/latest):
-
-```bash
-tar -xzf unsilo-aarch64-apple-darwin.tar.gz
-install -m 755 unsilo-aarch64-apple-darwin/unsilo ~/.local/bin/unsilo
-```
-
-On macOS there is a catch worth knowing: a **browser** marks what it downloads
-with `com.apple.quarantine` and Gatekeeper then kills the binary, because it is
-not signed by a paid Apple developer account. `curl` does not set that attribute,
-so the commands above are unaffected. If you did download through a browser:
-
-```bash
-xattr -d com.apple.quarantine unsilo
-```
-
-Windows: take the `x86_64-pc-windows-msvc` archive from the release page. The
-script does not cover it.
-
-Or build from source, which needs nothing but a Rust toolchain because SQLite is
-compiled in:
-
-```bash
-cargo install --git https://github.com/Fluzko/unsilo unsilo
-```
-
 Then, before anything else:
 
 ```bash
@@ -89,6 +54,88 @@ unsilo doctor
 
 It writes nothing and tells you what it found, including whether writing would be
 safe on your machine.
+
+<details>
+<summary><b>macOS</b> — and the Gatekeeper catch</summary>
+
+The one-liner above works as it is. Worth knowing why: a **browser** marks what it
+downloads with `com.apple.quarantine`, and Gatekeeper then kills the binary
+because it is not signed by a paid Apple developer account. `curl` sets no such
+attribute, so anything installed this way is unaffected.
+
+If you did download through a browser:
+
+```bash
+xattr -d com.apple.quarantine unsilo
+```
+
+Taking the archive by hand, Apple Silicon:
+
+```bash
+tar -xzf unsilo-aarch64-apple-darwin.tar.gz
+install -m 755 unsilo-aarch64-apple-darwin/unsilo ~/.local/bin/unsilo
+```
+
+Intel: `unsilo-x86_64-apple-darwin.tar.gz`.
+
+</details>
+
+<details>
+<summary><b>Linux</b></summary>
+
+The one-liner above works as it is. The x86_64 build is static, so it does not
+care which libc you have.
+
+Taking the archive by hand:
+
+```bash
+tar -xzf unsilo-x86_64-unknown-linux-musl.tar.gz
+install -m 755 unsilo-x86_64-unknown-linux-musl/unsilo ~/.local/bin/unsilo
+```
+
+On ARM: `unsilo-aarch64-unknown-linux-gnu.tar.gz`.
+
+</details>
+
+<details>
+<summary><b>Windows</b></summary>
+
+The script does not cover Windows. Take
+`unsilo-x86_64-pc-windows-msvc.tar.gz` from the
+[latest release](https://github.com/Fluzko/unsilo/releases/latest), extract it,
+and put `unsilo.exe` somewhere on your `PATH`.
+
+SmartScreen may warn about an unsigned executable, for the same reason
+Gatekeeper does on macOS.
+
+</details>
+
+<details>
+<summary><b>From source</b></summary>
+
+Needs nothing but a Rust toolchain, because SQLite is compiled in:
+
+```bash
+cargo install --git https://github.com/Fluzko/unsilo unsilo
+```
+
+</details>
+
+<details>
+<summary>Reading the install script first</summary>
+
+Piping a script into a shell means running whatever that URL serves. If you would
+rather look at it, which is reasonable:
+
+```bash
+curl -fsSL -O https://raw.githubusercontent.com/Fluzko/unsilo/main/install.sh
+less install.sh && sh install.sh
+```
+
+Every archive on the [release page](https://github.com/Fluzko/unsilo/releases/latest)
+also ships a `.sha256` beside it, which is what the script checks.
+
+</details>
 
 ## Commands
 
