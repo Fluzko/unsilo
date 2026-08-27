@@ -88,7 +88,7 @@ jobs:
             cat summary.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: coverage-lcov
           path: lcov.info
