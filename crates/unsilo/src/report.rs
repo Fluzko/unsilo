@@ -485,3 +485,80 @@ pub fn off(r: &crate::ops::off::Report) -> String {
     }
     out
 }
+
+#[must_use]
+pub fn labelled(l: &crate::ops::label::Labelled) -> String {
+    let mut out = String::new();
+    let kind = match l.kind {
+        crate::ops::label::Kind::Account => "account",
+        crate::ops::label::Kind::Org => "org",
+    };
+    let _ = writeln!(out, "\n  {kind:<8} {}", l.uuid);
+    match &l.replaced {
+        Some(before) if before != &l.name => {
+            let _ = writeln!(out, "  name     {} -> {}\n", before, l.name);
+        }
+        _ => {
+            let _ = writeln!(out, "  name     {}\n", l.name);
+        }
+    }
+    out
+}
+
+#[must_use]
+pub fn learned(l: &crate::ops::label::Learned) -> String {
+    let mut out = String::new();
+    match (&l.active_account, &l.active_email) {
+        (Some(account), Some(email)) => {
+            let _ = writeln!(out, "\n  active   {}  {}", short(account), email);
+        }
+        (Some(account), None) => {
+            let _ = writeln!(out, "\n  active   {}  (no email in config)", short(account));
+        }
+        _ => {
+            let _ = writeln!(out, "\n  active   (could not read the signed in account)");
+        }
+    }
+    let _ = writeln!(
+        out,
+        "  learned  {}\n",
+        if l.added == 0 { "nothing new".to_owned() } else { format!("{} new label(s)", l.added) }
+    );
+    out
+}
+
+#[must_use]
+pub fn labels(l: &crate::ops::label::Listing) -> String {
+    use crate::claude::identity::Source;
+    let mut out = String::new();
+    for (heading, rows) in [("accounts", &l.accounts), ("organizations", &l.orgs)] {
+        let _ = writeln!(out, "\n{heading}");
+        if rows.is_empty() {
+            let _ = writeln!(out, "  (none)");
+        }
+        for row in rows {
+            let source = match row.source {
+                Some(Source::Manual) => "manual",
+                Some(Source::Learned) => "learned",
+                None => "unnamed",
+            };
+            let _ = writeln!(
+                out,
+                "  {}  {:<34} {:<8} {} sessions{}",
+                short(&row.uuid),
+                row.name.clone().unwrap_or_else(|| "(unnamed)".to_owned()),
+                source,
+                row.sessions,
+                if row.is_active { "  <-" } else { "" }
+            );
+        }
+    }
+    let unnamed = l.accounts.iter().filter(|r| r.name.is_none()).count()
+        + l.orgs.iter().filter(|r| r.name.is_none()).count();
+    if unnamed > 0 {
+        let _ = writeln!(out, "\n  {unnamed} unnamed. `unsilo label <id> <name>` to fix\n");
+    } else {
+        let _ = writeln!(out);
+    }
+    out
+}

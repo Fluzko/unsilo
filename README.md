@@ -66,6 +66,31 @@ Full reference in [CLI.md](CLI.md).
   understand, or the remote transcript backend is on, writes exit 3 and only
   reading remains.
 
+## Keeping it current
+
+Account labels can only be learned while that account is signed in, so a session
+start hook captures each one the first time you use it. `--learn` writes only
+inside unsilo's own store, which is what makes it safe here:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "unsilo label --learn >/dev/null 2>&1 || true" }] }
+    ]
+  }
+}
+```
+
+For an account that is never active again, name it by hand:
+
+```bash
+unsilo label --list
+unsilo label 1e3fc9c4 work@example.com
+```
+
+A manual label is never overwritten by a learned one.
+
 ## Development
 
 ```bash
@@ -90,8 +115,3 @@ assert_eq!(before, w.claude_digest());
 It compares content, permissions **and which paths share an inode**: a leaked
 hard link changes no bytes, so without that the test would pass while leaking
 files.
-
-## Status
-
-v1 complete: all six commands work, with 212 tests on Linux, macOS and Windows.
-# unsilo

@@ -103,6 +103,10 @@ impl Identities {
             .insert(account.to_owned(), Label { name: email.to_owned(), source: Source::Manual });
     }
 
+    pub fn set_manual_org(&mut self, org: &str, name: &str) {
+        self.orgs.insert(org.to_owned(), Label { name: name.to_owned(), source: Source::Manual });
+    }
+
     fn learn_account(&mut self, account: &str, email: &str) {
         if email.is_empty() {
             return;
@@ -114,7 +118,7 @@ impl Identities {
             .or_insert_with(|| Label { name: email.to_owned(), source: Source::Learned });
     }
 
-    fn learn_org(&mut self, org: &str, name: &str) {
+    pub(crate) fn learn_org(&mut self, org: &str, name: &str) {
         if name.is_empty() {
             return;
         }

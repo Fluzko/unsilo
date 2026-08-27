@@ -38,6 +38,32 @@ fn pending(dry_run: bool, changes: usize) -> Result<std::process::ExitCode, Erro
     Ok(std::process::ExitCode::SUCCESS)
 }
 
+fn label(
+    env: &Env,
+    json: bool,
+    id: Option<String>,
+    name: Option<String>,
+    learn: bool,
+    list: bool,
+) -> Result<std::process::ExitCode, Error> {
+    if list {
+        let listing = ops::label::list(env)?;
+        emit(json, &listing, || report::labels(&listing))?;
+        return Ok(std::process::ExitCode::SUCCESS);
+    }
+    if learn {
+        let learned = ops::label::learn(env)?;
+        emit(json, &learned, || report::learned(&learned))?;
+        return Ok(std::process::ExitCode::SUCCESS);
+    }
+    let (Some(id), Some(name)) = (id, name) else {
+        return Err(Error::Usage("label needs an id and a name, or --learn, or --list".to_owned()));
+    };
+    let labelled = ops::label::set(env, &id, &name)?;
+    emit(json, &labelled, || report::labelled(&labelled))?;
+    Ok(std::process::ExitCode::SUCCESS)
+}
+
 fn run() -> Result<std::process::ExitCode> {
     let cli = Cli::parse();
     let env = Env::discover()?;
@@ -89,6 +115,7 @@ fn run() -> Result<std::process::ExitCode> {
             emit(cli.json, &report, || report::off(&report))?;
             pending(dry_run, report.removed.len())
         }
+        Command::Label { id, name, learn, list } => label(&env, cli.json, id, name, learn, list),
         Command::Restore { name, dry_run, force, skip_conflicts, rewrite_cwd } => {
             let rewrite_cwd = rewrite_cwd
                 .iter()

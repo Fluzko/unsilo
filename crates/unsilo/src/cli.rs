@@ -73,6 +73,24 @@ pub enum Command {
         #[arg(long)]
         purge: bool,
     },
+    /// Name an account or organization by hand, or capture the active one.
+    ///
+    /// Learning only works for the account signed in at the time, so an account
+    /// that is never active again can only be named here.
+    Label {
+        /// Uuid, or enough of its start to be unambiguous. Accounts and
+        /// organizations are both accepted; which one it is comes from the id.
+        id: Option<String>,
+        /// The email for an account, or the display name for an organization.
+        name: Option<String>,
+        /// Capture whatever account is signed in right now, and nothing else.
+        /// Writes only inside the store, which makes it safe in a startup hook.
+        #[arg(long)]
+        learn: bool,
+        /// Show what is known, and where each label came from.
+        #[arg(long)]
+        list: bool,
+    },
     /// Put back what a snapshot captured.
     Restore {
         /// Snapshot name, or a path to a .tar.zst.

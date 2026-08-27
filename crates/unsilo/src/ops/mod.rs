@@ -5,6 +5,7 @@ pub mod apply;
 pub mod doctor;
 pub mod find;
 pub mod ingest;
+pub mod label;
 pub mod off;
 pub mod restore;
 pub mod snapshot;
