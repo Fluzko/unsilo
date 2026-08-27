@@ -19,8 +19,13 @@ jobs:
         include:
           - os: macos-latest
             target: aarch64-apple-darwin
-          - os: macos-13
+          # Cross-compiled from the arm runner rather than built on macos-13,
+          # which GitHub is retiring and which now queues indefinitely. Apple's
+          # clang targets both architectures, so the bundled C dependencies build
+          # the same way.
+          - os: macos-latest
             target: x86_64-apple-darwin
+            cross: true
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
           - os: ubuntu-24.04-arm
@@ -45,9 +50,10 @@ jobs:
 
       - run: cargo build --release --locked --target ${{ matrix.target }} -p unsilo
 
-      # A binary that cannot start is not a release artifact. Every target here
-      # is built natively, so every one of them can be run.
+      # A binary that cannot start is not a release artifact. The one
+      # cross-compiled target cannot be run by its builder, so it is exempt.
       - name: Smoke test
+        if: matrix.cross != true
         shell: bash
         run: |
           BIN="target/${{ matrix.target }}/release/unsilo"
@@ -59,7 +65,7 @@ jobs:
         run: |
           NAME="unsilo-${{ matrix.target }}"
           mkdir -p "dist/$NAME"
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          if [ "${{ matrix.target }}" = "x86_64-pc-windows-msvc" ]; then
             cp "target/${{ matrix.target }}/release/unsilo.exe" "dist/$NAME/"
           else
             cp "target/${{ matrix.target }}/release/unsilo" "dist/$NAME/"
