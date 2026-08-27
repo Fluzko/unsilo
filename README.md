@@ -2,6 +2,15 @@
   <img src="assets/banner.svg" alt="unsilo" width="500">
 </div>
 
+<div align="center">
+
+[![crates.io](https://img.shields.io/crates/v/unsilo?logo=rust)](https://crates.io/crates/unsilo)
+[![docs](https://img.shields.io/docsrs/unsilo?logo=docsdotrs)](https://docs.rs/unsilo)
+[![ci](https://img.shields.io/github/actions/workflow/status/Fluzko/unsilo/ci.yml?branch=main&label=ci)](https://github.com/Fluzko/unsilo/actions/workflows/ci.yml)
+[![license](https://img.shields.io/crates/l/unsilo)](LICENSE)
+
+</div>
+
 ---
 
 Claude Desktop hides your own history from you. Sign in with a second account
