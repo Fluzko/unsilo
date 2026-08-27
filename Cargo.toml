@@ -8,10 +8,14 @@ edition = "2024"
 rust-version = "1.85"
 license = "MIT"
 repository = "https://github.com/Fluzko/unsilo"
+homepage = "https://github.com/Fluzko/unsilo"
+readme = "README.md"
+keywords = ["claude", "claude-code", "conversations", "cli", "sessions"]
+categories = ["command-line-utilities", "development-tools"]
 
 [workspace.dependencies]
-unsilo = { path = "crates/unsilo", version = "0.1.0" }
-unsilo-testkit = { path = "crates/unsilo-testkit", version = "0.1.0" }
+unsilo = { path = "crates/unsilo" }
+unsilo-testkit = { path = "crates/unsilo-testkit" }
 anstream = "0.6"
 anstyle = "1"
 camino = { version = "1.1", features = ["serde1"] }

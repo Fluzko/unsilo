@@ -5,7 +5,15 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "One view of your Claude Code conversations, whatever account you are signed in with"
+readme = "../../README.md"
+
+# The integration tests need the fixture crate next door, which is never
+# published. Shipping them would ship something that cannot build.
+exclude = ["tests/"]
 
 [lints]
 workspace = true

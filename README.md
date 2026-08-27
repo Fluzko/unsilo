@@ -137,6 +137,22 @@ cargo fmt --all -- --check
 Fixtures are generated from code (`crates/unsilo-testkit`) and never copied from
 a real machine, so no conversation content reaches the repository.
 
+`unsilo-testkit` is not published, and `unsilo` refers to it by path with no
+version. Cargo drops a path-only dev-dependency when publishing, which is what
+lets the binary crate go to crates.io while its fixture crate stays here. Adding
+a version to that dependency is what breaks it.
+
+### Releasing
+
+```bash
+cargo publish -p unsilo          # crates.io
+git tag -a vX.Y.Z && git push origin vX.Y.Z   # binaries, via .github/workflows/release.yml
+```
+
+Rehearse the binaries first with `gh workflow run release.yml`: it builds every
+target and uploads the artifacts without creating a release, since the publish
+job only runs for a tag.
+
 The test that matters:
 
 ```rust
