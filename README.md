@@ -159,6 +159,130 @@ also ships a `.sha256` beside it, which is what the script checks.
 
 Full reference in [CLI.md](CLI.md).
 
+## Usage
+
+### First run
+
+```bash
+unsilo doctor                              # writes nothing; read this first
+unsilo snapshot claude --name pre-unsilo   # a picture of Claude untouched
+unsilo apply --dry-run                     # what would change
+unsilo apply                               # captures a baseline, then applies
+```
+
+`doctor` leads with the number that matters:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ 2 desktop sessions NOT visible under the active account  │
+└──────────────────────────────────────────────────────────┘
+```
+
+`--dry-run` prints the plan and exits 4 when there is something to do, so
+`unsilo apply --dry-run || unsilo apply` works in a script.
+
+### After switching accounts
+
+```bash
+unsilo apply
+```
+
+```
+── apply ─────────────────────────────────────────────────────────────────
+  active account  1e3fc9c4 / 9410ab45  (work@example.com)
+  selected        131
+
+  desktop
+    + 4a4c4b0e  Resuming conversations in folders  (from 81774974/06f92962, 4.1 KB of mcp dropped)
+    + 6709c064  Code comments review               (from 81774974/06f92962, 4.1 KB of mcp dropped)
+    = 5 already visible
+
+  2 changes
+```
+
+Idempotent: run it again and it reports `0 changes` without writing.
+
+### Bringing terminal conversations into the desktop
+
+A conversation started with `claude` in a terminal has no desktop entry, so the
+desktop has never listed it under any account. `apply` says how many:
+
+```
+  126 conversation(s) the desktop has never known about
+  --adopt-cli-sessions would give them an entry so it lists them
+```
+
+Look before you leap, then do it:
+
+```bash
+unsilo apply --dry-run --adopt-cli-sessions
+unsilo apply --adopt-cli-sessions
+```
+
+The entry is built from the transcript and marked as terminal-born, so
+`--origin cli` still tells the two apart afterwards. The other direction needs
+nothing: a desktop session already writes its transcript where the CLI looks, so
+`claude --resume` finds it.
+
+To adopt one rather than all of them, keep it additive:
+
+```bash
+unsilo apply --adopt-cli-sessions --id 7494e26c --no-prune
+```
+
+Without `--no-prune` that is not an addition. `apply` is declarative: the filter
+describes the whole visible set, so a narrow filter also removes what falls
+outside it.
+
+### Finding a conversation and going back to it
+
+```bash
+unsilo find "the timeout bug"
+unsilo find --project my-repo --since 30d
+unsilo find --email work@example.com --branch main
+```
+
+```
+── conversations ─────────────────────────────────────────────────────────
+ID        DATE        PROJECT                      SIZE      ACCOUNT                TITLE
+7494e26c  2026-08-26  ~/code/projects              564.2 KB  work@example.com?      README and logo
+54e36768  2026-08-24  ~/code/projects              68.1 KB   (cli only)             Conversations do not refresh
+```
+
+A trailing `?` on the account means it was inferred from when the conversation
+started, not stated by a desktop entry. `(cli only)` means nothing knows.
+`--confirmed-only` drops the inferred ones.
+
+Then reopen it:
+
+```bash
+eval "$(unsilo find --id 7494e26c --format resume)"
+```
+
+`--format resume` prints `cd <cwd> && claude --resume <id>`, so you land in the
+right directory. `--format paths` gives the transcript paths for piping, and
+neither is ever coloured.
+
+### Undoing it
+
+```bash
+unsilo off
+```
+
+```
+  1 removed, 1 kept
+  store untouched: 132 transcripts. unsilo apply to turn it back on
+```
+
+`kept` means Claude rewrote that file after unsilo put it there, so it is no
+longer ours to remove. The store is never touched, because retention cleanup can
+make it the only remaining copy of a transcript. To remove that too:
+
+```bash
+unsilo snapshot store --name final
+unsilo off --purge          # refused without a store snapshot
+```
+
 ## How it works
 
 - **Hard links, never symlinks.** Claude's listing filters with `Dirent.isFile()`,
