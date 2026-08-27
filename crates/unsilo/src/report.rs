@@ -250,6 +250,13 @@ pub fn find(results: &crate::ops::find::Results, home: &camino::Utf8Path) -> Str
         // A trailing "?" is the whole difference between what an entry states and
         // what the timestamps suggest.
         let account = match (row.scopes.first(), &row.inferred_account) {
+            // An adopted entry proves nothing about the account: Unsilo put it
+            // there. Whatever is known about the account still comes from the
+            // inference, so it keeps its marker.
+            (Some(scope), inferred) if scope.adopted => match inferred {
+                Some(account) => format!("{}?", name_of(account)),
+                None => "(cli only)".to_owned(),
+            },
             (Some(scope), _) => name_of(&scope.account),
             (None, Some(inferred)) => format!("{}?", name_of(inferred)),
             (None, None) => "(cli only)".to_owned(),
@@ -435,6 +442,29 @@ pub fn apply(r: &crate::ops::apply::Report) -> String {
     }
     if r.already_visible > 0 {
         let _ = writeln!(out, "    = {} already visible", r.already_visible);
+    }
+    if !r.adopted.is_empty() {
+        let _ = writeln!(out, "\n  adopted from the cli");
+        for item in &r.adopted {
+            let title = item
+                .title
+                .as_deref()
+                .map_or_else(|| "(untitled)".to_owned(), |t| t.replace(['\n', '\r'], " "));
+            let _ = writeln!(
+                out,
+                "    + {}  {}",
+                short(&item.session_id),
+                truncate(&title, 64, Keep::Head)
+            );
+        }
+    }
+    if r.adoptable > 0 {
+        let _ = writeln!(
+            out,
+            "\n  {} conversation(s) the desktop has never known about.\n  \
+             --adopt-cli-sessions would give them an entry so it lists them",
+            r.adoptable
+        );
     }
     if !r.relinked.is_empty() {
         let _ = writeln!(out, "\n  cli");

@@ -56,6 +56,8 @@ pub struct Scope {
     pub host_id: String,
     pub model: Option<String>,
     pub is_archived: bool,
+    /// Built by Unsilo from a transcript rather than written by the desktop.
+    pub adopted: bool,
 }
 
 impl Row {
@@ -239,8 +241,8 @@ impl Index {
             "INSERT INTO session (
                     session_id, record_id, cwd, project_slug, origin_dir, git_branch,
                     cli_version, title, first_prompt, created_at_ms, modified_at_ms,
-                    size_bytes, hidden_reason, seen_at_ms
-                 ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)
+                    size_bytes, hidden_reason, seen_at_ms, model
+                 ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)
                  ON CONFLICT(session_id) DO UPDATE SET
                     cwd = excluded.cwd,
                     origin_dir = excluded.origin_dir,
@@ -253,7 +255,8 @@ impl Index {
                     modified_at_ms = excluded.modified_at_ms,
                     size_bytes = excluded.size_bytes,
                     hidden_reason = excluded.hidden_reason,
-                    seen_at_ms = excluded.seen_at_ms",
+                    seen_at_ms = excluded.seen_at_ms,
+                    model = COALESCE(excluded.model, session.model)",
             params![
                 meta.session_id,
                 meta.record_id,
@@ -269,6 +272,7 @@ impl Index {
                 i64::try_from(meta.size).unwrap_or(i64::MAX),
                 meta.hidden_from_resume().map(crate::claude::transcript::Hidden::as_str),
                 seen_at_ms,
+                meta.model,
             ],
         )?;
         self.conn.execute(
@@ -381,13 +385,52 @@ impl Index {
     }
 
     /// Flags the entries Unsilo itself wrote, by matching the ledger on path.
+    /// A copied one and a synthesized one are both ours but mean different
+    /// things, so they are tracked apart.
     pub fn mark_projected_entries(&self) -> Result<usize> {
-        let changed = self.conn.execute(
+        let projected = self.conn.execute(
             "UPDATE desktop_entry SET projected = 1
              WHERE path IN (SELECT path FROM ledger WHERE kind = 'desktop_entry')",
             [],
         )?;
-        Ok(changed)
+        let adopted = self.conn.execute(
+            "UPDATE desktop_entry SET projected = 1, adopted = 1
+             WHERE path IN (SELECT path FROM ledger WHERE kind = 'adopted_entry')",
+            [],
+        )?;
+        Ok(projected + adopted)
+    }
+
+    /// Sessions the desktop has never known about, which are the ones adoption
+    /// exists for.
+    pub fn sessions_without_any_entry(&self) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT s.session_id FROM session s
+             WHERE s.hidden_reason IS NULL
+               AND NOT EXISTS (SELECT 1 FROM desktop_entry d WHERE d.session_id = s.session_id)
+             ORDER BY s.modified_at_ms DESC",
+        )?;
+        let rows =
+            stmt.query_map([], |r| r.get(0))?.collect::<std::result::Result<Vec<String>, _>>()?;
+        Ok(rows)
+    }
+
+    /// Adopted entries whose conversation now has a native entry in the same
+    /// list. Two rows for one conversation would show it twice.
+    pub fn superseded_adoptions(&self, account: &str, org: &str) -> Result<Vec<Utf8PathBuf>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT mine.path FROM desktop_entry mine
+             WHERE mine.adopted = 1 AND mine.account_uuid = ?1 AND mine.org_uuid = ?2
+               AND EXISTS (
+                 SELECT 1 FROM desktop_entry native
+                 WHERE native.adopted = 0 AND native.session_id = mine.session_id
+                   AND native.account_uuid = ?1 AND native.org_uuid = ?2
+               )",
+        )?;
+        let rows = stmt
+            .query_map(params![account, org], |r| r.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<String>, _>>()?;
+        Ok(rows.into_iter().map(Utf8PathBuf::from).collect())
     }
 
     pub fn upsert_tombstone(&self, tombstone: &Tombstone) -> Result<()> {
@@ -458,7 +501,7 @@ impl Index {
 
     fn scopes_of(&self, session_id: &str) -> Result<Vec<Scope>> {
         let mut stmt = self.conn.prepare(
-            "SELECT account_uuid, org_uuid, surface, host_id, model, is_archived
+            "SELECT account_uuid, org_uuid, surface, host_id, model, is_archived, adopted
              FROM desktop_entry WHERE session_id = ?1 ORDER BY account_uuid, org_uuid",
         )?;
         let scopes = stmt
@@ -470,6 +513,7 @@ impl Index {
                     host_id: r.get(3)?,
                     model: r.get(4)?,
                     is_archived: r.get::<_, i32>(5)? != 0,
+                    adopted: r.get::<_, i32>(6)? != 0,
                 })
             })?
             .collect::<std::result::Result<Vec<Scope>, _>>()?;
@@ -580,6 +624,20 @@ fn push_scope_predicates(
     }
     if filter.archived_only {
         where_sql.push("d.is_archived = 1".to_owned());
+    }
+    match filter.origin {
+        // Born in the terminal: either no entry at all, or only one we built.
+        Some(crate::filter::Origin::Cli) => where_sql.push(
+            "NOT EXISTS (SELECT 1 FROM desktop_entry n
+                         WHERE n.session_id = s.session_id AND n.adopted = 0)"
+                .to_owned(),
+        ),
+        Some(crate::filter::Origin::Desktop) => where_sql.push(
+            "EXISTS (SELECT 1 FROM desktop_entry n
+                     WHERE n.session_id = s.session_id AND n.adopted = 0)"
+                .to_owned(),
+        ),
+        None => {}
     }
 }
 

@@ -103,9 +103,14 @@ fn run() -> Result<std::process::ExitCode> {
             }
             Ok(std::process::ExitCode::SUCCESS)
         }
-        Command::Apply { filters, dry_run, keep_mcp, no_prune } => {
+        Command::Apply { filters, dry_run, keep_mcp, no_prune, adopt_cli_sessions } => {
             let filter = filters.to_filter()?;
-            let options = ops::apply::Options { dry_run, keep_account_scoped: keep_mcp, no_prune };
+            let options = ops::apply::Options {
+                dry_run,
+                keep_account_scoped: keep_mcp,
+                no_prune,
+                adopt_cli_sessions,
+            };
             let report = ops::apply::run(&env, &filter, &options)?;
             emit(cli.json, &report, || report::apply(&report))?;
             pending(dry_run, report.changes())

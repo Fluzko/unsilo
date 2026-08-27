@@ -23,13 +23,27 @@ use std::collections::BTreeSet;
 /// without the store growing without bound.
 const KEEP_AUTO_SNAPSHOTS: usize = 10;
 
+/// Independent switches over one operation, so grouping them into a type would
+/// only add a level of naming.
 #[derive(Debug, Clone, Default)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Options {
     pub dry_run: bool,
     /// Leave the account-scoped MCP payload in projected entries.
     pub keep_account_scoped: bool,
     /// Do not remove entries that fall outside the current filter.
     pub no_prune: bool,
+    /// Build entries for conversations the desktop never knew about, so they
+    /// appear in its list at all.
+    pub adopt_cli_sessions: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Adoption {
+    pub session_id: String,
+    pub host_id: String,
+    pub title: Option<String>,
+    pub target: Utf8PathBuf,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -55,6 +69,11 @@ pub struct Report {
     pub active: Active,
     pub selected: usize,
     pub projected: Vec<Projection>,
+    /// Conversations the desktop never knew about, given an entry so it does.
+    pub adopted: Vec<Adoption>,
+    /// Conversations the desktop never knew about and still will not, because
+    /// adoption was not asked for.
+    pub adoptable: usize,
     pub relinked: Vec<Relink>,
     pub pruned: Vec<Utf8PathBuf>,
     /// Ledger entries Claude has since rewritten, which are kept.
@@ -66,9 +85,13 @@ pub struct Report {
 }
 
 impl Report {
+    fn adoptions_push(&mut self, adoption: Adoption) {
+        self.adopted.push(adoption);
+    }
+
     #[must_use]
     pub fn changes(&self) -> usize {
-        self.projected.len() + self.relinked.len() + self.pruned.len()
+        self.projected.len() + self.adopted.len() + self.relinked.len() + self.pruned.len()
     }
 }
 
@@ -105,6 +128,8 @@ pub fn run(env: &Env, filter: &Filter, options: &Options) -> Result<Report> {
         active: active.clone(),
         selected: selected.len(),
         projected: Vec::new(),
+        adopted: Vec::new(),
+        adoptable: 0,
         relinked: Vec::new(),
         pruned: Vec::new(),
         kept_modified: Vec::new(),
@@ -115,9 +140,13 @@ pub fn run(env: &Env, filter: &Filter, options: &Options) -> Result<Report> {
     };
 
     plan_projections(env, &inventory, &active, &selected, options, &mut report);
+    plan_adoptions(env, &index, &active, &selected, options, &mut report)?;
     plan_relinks(env, &index, &resolved, &selected, &mut report)?;
     if !options.no_prune {
         plan_prune(&ledger, &selected, &mut report)?;
+        // The desktop may have created its own entry since we adopted one. Two
+        // rows for one conversation would show it twice.
+        report.pruned.extend(index.superseded_adoptions(&active.account, &active.org)?);
     }
 
     if options.dry_run {
@@ -221,6 +250,60 @@ fn best_sources<'a>(inventory: &'a Inventory, selected: &BTreeSet<String>) -> Ve
     candidates.into_iter().filter(|e| seen.insert(e.cli_session_id.clone())).collect()
 }
 
+/// A conversation with no entry anywhere is invisible in the desktop under every
+/// account, so this is not about which account can see it but about whether the
+/// desktop knows it exists at all.
+fn plan_adoptions(
+    env: &Env,
+    index: &Index,
+    active: &Active,
+    selected: &BTreeSet<String>,
+    options: &Options,
+    report: &mut Report,
+) -> Result<()> {
+    let orphans: Vec<String> = index
+        .sessions_without_any_entry()?
+        .into_iter()
+        .filter(|id| selected.contains(id))
+        .collect();
+
+    if !options.adopt_cli_sessions {
+        // Reported even when not asked for, so the number is not a surprise the
+        // first time someone passes the flag.
+        report.adoptable = orphans.len();
+        return Ok(());
+    }
+    let Some(user_data) = env.user_data.first() else { return Ok(()) };
+    let target_dir = user_data.join(desktop::CODE_SESSIONS).join(&active.account).join(&active.org);
+
+    for session_id in orphans {
+        let Some(meta) = read_meta(index, &session_id)? else { continue };
+        let host_id = crate::adopt::host_id_for(&session_id);
+        let target = target_dir.join(format!("{host_id}.json"));
+        if target.exists() {
+            continue;
+        }
+        report.adoptions_push(Adoption {
+            session_id,
+            host_id,
+            title: meta.display_title().map(ToOwned::to_owned),
+            target,
+        });
+    }
+    Ok(())
+}
+
+/// Re-reads the transcript, since an entry is built from what it says now rather
+/// than from what the index remembered.
+fn read_meta(index: &Index, session_id: &str) -> Result<Option<crate::claude::transcript::Meta>> {
+    let Some(dir) = index.origin_dir_of(session_id)? else { return Ok(None) };
+    let path = dir.join(format!("{session_id}.jsonl"));
+    if !path.exists() {
+        return Ok(None);
+    }
+    crate::claude::transcript::parse(&path)
+}
+
 fn plan_relinks(
     env: &Env,
     index: &Index,
@@ -294,11 +377,31 @@ fn execute(env: &Env, ledger: &Ledger, report: &mut Report) -> Result<()> {
         store.restore_into(&relink.session_id, dir)?;
     }
 
+    for adoption in &report.adopted {
+        let Some(meta) = read_meta(&index_for(env)?, &adoption.session_id)? else { continue };
+        let entry = crate::adopt::entry_for(&meta, now);
+        let bytes = serde_json::to_vec(&entry).map_err(|e| Error::json(&adoption.target, e))?;
+        ledger.begin(
+            &adoption.target,
+            ledger::KIND_ADOPTED_ENTRY,
+            Some(&adoption.session_id),
+            Some(&adoption.host_id),
+            now,
+        )?;
+        env.failpoints.hit("apply.after_ledger_pending")?;
+        fsx::write_atomic(&guard, &adoption.target, &bytes)?;
+        ledger.commit(&adoption.target, &bytes)?;
+    }
+
     for path in &report.pruned {
         fsx::remove_file(&guard, path)?;
         ledger.forget(path)?;
     }
     Ok(())
+}
+
+fn index_for(env: &Env) -> Result<Index> {
+    Index::open(&env.index_path())
 }
 
 /// Re-reads the entry at execution time so what is written is what is on disk

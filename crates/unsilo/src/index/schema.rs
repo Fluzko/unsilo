@@ -115,6 +115,13 @@ pub const MIGRATIONS: &[&str] = &[
     ALTER TABLE session ADD COLUMN inferred_account TEXT;
     ALTER TABLE session ADD COLUMN inferred_org TEXT;
     ",
+    // 5: an entry synthesized from a CLI transcript is neither native nor a copy
+    // of one; it exists because the desktop never knew about that conversation.
+    // Tracked so it stays distinguishable in listings and filters.
+    r"
+    ALTER TABLE desktop_entry ADD COLUMN adopted INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE session ADD COLUMN model TEXT;
+    ",
 ];
 
 #[must_use]

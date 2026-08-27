@@ -55,6 +55,9 @@ pub struct Meta {
     pub cwd: Option<String>,
     pub git_branch: Option<String>,
     pub cli_version: Option<String>,
+    /// From the first assistant turn. Absent in a transcript with no reply yet.
+    pub model: Option<String>,
+    pub effort: Option<String>,
     pub title: Option<String>,
     pub first_prompt: Option<String>,
     pub created_at_ms: Option<i64>,
@@ -243,6 +246,10 @@ pub fn parse(path: &Utf8Path) -> Result<Option<Meta>> {
     };
 
     let (head_ts, tail_ts) = (timestamps(&head), timestamps(&tail));
+    let assistant = typed(&head, "assistant").next();
+    let model =
+        assistant.and_then(|r| r.get("message")?.get("model")?.as_str().map(ToOwned::to_owned));
+    let effort = assistant.and_then(|r| r.get("effort")?.as_str().map(ToOwned::to_owned));
 
     Ok(Some(Meta {
         session_id: stem.to_owned(),
@@ -253,6 +260,8 @@ pub fn parse(path: &Utf8Path) -> Result<Option<Meta>> {
         cwd,
         git_branch: str_field(&head, "gitBranch").filter(|s| !s.is_empty()),
         cli_version: str_field(&head, "version"),
+        model,
+        effort,
         title,
         first_prompt: first_prompt(&head),
         created_at_ms: head_ts.first().copied(),
@@ -402,6 +411,8 @@ mod tests {
             cwd: None,
             git_branch: None,
             cli_version: None,
+            model: None,
+            effort: None,
             title: None,
             first_prompt: None,
             created_at_ms: None,

@@ -12,6 +12,8 @@ use camino::Utf8Path;
 use serde::Serialize;
 
 pub const KIND_DESKTOP_ENTRY: &str = "desktop_entry";
+/// An entry built from a CLI transcript rather than copied from another account.
+pub const KIND_ADOPTED_ENTRY: &str = "adopted_entry";
 pub const KIND_TRANSCRIPT_LINK: &str = "transcript_link";
 
 pub const STATE_PENDING: &str = "pending";

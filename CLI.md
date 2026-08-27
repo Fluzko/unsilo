@@ -10,6 +10,7 @@ unsilo apply    [filters]
 unsilo off      [--purge]
 unsilo snapshot <claude|store> --name N
 unsilo restore  <NAME>
+unsilo label    <id> <name> | --learn | --list
 ```
 
 ---
@@ -53,9 +54,11 @@ previewing with one and applying with the other cannot drift apart.
 --since <T>           ISO8601, a date, or relative: 7d, 3w, 6mo, 1y
 --until <T>
 --surface code|cowork
+--origin cli|desktop  where the conversation was started
 --archived
 --include-deleted     tombstoned sessions are excluded by default
 --include-hidden      include sidechains, team sessions and daemon sessions
+--confirmed-only      refuse an account inferred from timestamps
 --limit <N>
 --sort recent|created|size
 ```
@@ -74,24 +77,34 @@ The entries Unsilo writes are marked, and account filters ignore them.
 
 ### Emails that do not resolve
 
-`~/.claude.json` holds `oauthAccount` for **the active account only**. Unsilo
-learns the uuid to email pair on every run and persists it in `identities.json`,
-but it can only ever learn the one that is active at that moment.
+`~/.claude.json` holds `oauthAccount` for **the active account only**, so an
+account is only learnable while it is signed in. `unsilo label` covers both
+cases: `--learn` captures the active one, and `<id> <name>` names any of them by
+hand. A manual label is never overwritten by a learned one. See command 7.
 
-*(Changed from the original design: manual labels live in
-`$UNSILO_HOME/identities.json`, not in a separate `config.toml`.)*
+An `--email` that matches no known account is a **usage error (exit 2)**, not an
+empty list: returning nothing would let `apply --email typo` prune everything
+visible.
 
-```json
-{
-  "accounts": {
-    "81774974-337a-437a-a007-6f68a7bd3442": { "name": "personal@gmail.com", "source": "manual" }
-  }
-}
-```
+### Accounts a conversation never recorded
 
-A manual label is never overwritten by a learned one. An `--email` that matches
-no known account is a **usage error (exit 2)**, not an empty list: returning
-nothing would let `apply --email typo` prune everything visible.
+A transcript records no account at all: not the uuid, not the organization, not
+the email. The association exists only in a desktop entry, and only for the
+sessions the desktop created, which on a real machine is 6 of 132.
+
+For the rest the account is **inferred** from when the conversation started, by
+remembering which account was signed in when. Two kinds of evidence count: a
+sighting at that moment, or a nearest-before and nearest-after that name the same
+account. A single sighting beforehand is not enough, since unsilo only observes
+when it runs.
+
+An inference is never stored as a fact:
+
+- `--email` and `--account` accept one, because that is what a human means
+- `--confirmed-only` refuses one
+- `find` marks it with a trailing `?`
+
+Coverage starts near zero and grows with use. `doctor` reports it.
 
 ---
 
@@ -205,7 +218,7 @@ No results exits 5.
 Declarative, not additive: the filter describes the whole visible set.
 
 ```
-unsilo apply [filters] [--dry-run] [--keep-mcp] [--no-prune]
+unsilo apply [filters] [--dry-run] [--keep-mcp] [--no-prune] [--adopt-cli-sessions]
 ```
 
 Steps:
@@ -252,6 +265,22 @@ session either way. `--keep-mcp` keeps them.
 A session deleted from **the target list** is not projected, even if the filter
 selects it. One deleted from another list says nothing about this one.
 
+### `--adopt-cli-sessions`
+
+A conversation started from the terminal has no desktop entry anywhere, so the
+desktop has never listed it under any account. Without this flag `apply` reports
+how many there are and leaves them alone.
+
+With it, an entry is built from the transcript, which already holds everything one
+needs. It is marked as CLI-born, so `find` still shows where it came from and
+`--origin cli` still separates it. The host id is derived from the transcript id,
+so adopting twice is the same entry rather than a second one, and if the desktop
+later writes its own entry for that conversation, ours is removed instead of the
+conversation appearing twice.
+
+More invasive than copying an entry that already exists, which is why it takes a
+flag. Use `--dry-run` first: on a typical machine this is most of them.
+
 ---
 
 ## 4. `unsilo off`
@@ -287,7 +316,34 @@ snapshot, because the store can be the last remaining copy of a transcript.
 
 ---
 
-## 5. `unsilo snapshot`
+## 5. `unsilo label`
+
+```
+unsilo label <id> <name>
+unsilo label --learn
+unsilo label --list
+```
+
+`<id>` is a uuid or enough of its start to be unambiguous. Accounts and
+organizations are both accepted; which one it is comes from the id rather than
+from a flag, since the two are indistinguishable by shape.
+
+`--learn` captures whatever account is signed in and nothing else. It writes only
+inside the store, which is what makes it safe in a session start hook:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "unsilo label --learn >/dev/null 2>&1 || true" }] }
+    ]
+  }
+}
+```
+
+`--list` shows what is known and where each name came from.
+
+## 6. `unsilo snapshot`
 
 ```
 unsilo snapshot claude --name N [--metadata-only]
@@ -340,7 +396,7 @@ possible. Every entry carries `len` alongside its `sha256`.
 
 ---
 
-## 6. `unsilo restore`
+## 7. `unsilo restore`
 
 ```
 unsilo restore <NAME|FILE> [--dry-run] [--force] [--skip-conflicts]
@@ -399,3 +455,6 @@ unsilo snapshot store --name final && unsilo off --purge   # uninstall
 `attach` (hard link a session into another cwd), `prune`, profiles as filter
 aliases, watch mode, full text indexing of the body (`scan --full`), and
 `--sort messages`, which needs the count only a full scan provides.
+
+Also a saved plan: `--dry-run` recomputes rather than replaying what was
+reviewed, so between the preview and the run the state can move.

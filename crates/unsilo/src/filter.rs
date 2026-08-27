@@ -10,6 +10,14 @@ use crate::claude::time::iso_to_epoch_ms;
 use crate::error::{Error, Result};
 use std::collections::BTreeSet;
 
+/// Where a conversation was started. A CLI-born one has no native desktop entry;
+/// if it has one at all, Unsilo built it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Origin {
+    Cli,
+    Desktop,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Sort {
     #[default]
@@ -60,6 +68,7 @@ pub struct Filter {
     pub since: Option<String>,
     pub until: Option<String>,
     pub surfaces: Vec<Surface>,
+    pub origin: Option<Origin>,
     pub archived_only: bool,
     pub include_deleted: bool,
     pub include_hidden: bool,
@@ -86,6 +95,7 @@ impl Filter {
             && self.since.is_none()
             && self.until.is_none()
             && self.surfaces.is_empty()
+            && self.origin.is_none()
             && !self.archived_only
             && self.query.is_none()
     }
@@ -125,6 +135,7 @@ impl Filter {
             since_ms: self.since.as_deref().map(|s| parse_when(s, now_ms)).transpose()?,
             until_ms: self.until.as_deref().map(|s| parse_when(s, now_ms)).transpose()?,
             surfaces: self.surfaces.clone(),
+            origin: self.origin,
             archived_only: self.archived_only,
             include_deleted: self.include_deleted,
             include_hidden: self.include_hidden,
@@ -151,6 +162,7 @@ pub struct Resolved {
     pub since_ms: Option<i64>,
     pub until_ms: Option<i64>,
     pub surfaces: Vec<Surface>,
+    pub origin: Option<Origin>,
     pub archived_only: bool,
     pub include_deleted: bool,
     pub include_hidden: bool,

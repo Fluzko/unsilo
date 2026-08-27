@@ -64,6 +64,12 @@ pub enum Command {
         /// Leave in place what an earlier apply projected but the filter no longer selects.
         #[arg(long)]
         no_prune: bool,
+        /// Also build entries for conversations started from the terminal, which
+        /// the desktop has never known about and so has never listed. More
+        /// invasive than copying an entry that already exists: use --dry-run
+        /// first, since on a typical machine this is most of them.
+        #[arg(long)]
+        adopt_cli_sessions: bool,
     },
     /// Turn unsilo off: remove what it projected, leave the store untouched.
     Off {
@@ -180,6 +186,9 @@ pub struct Filters {
     /// code or cowork. Repeatable.
     #[arg(long = "surface")]
     pub surfaces: Vec<String>,
+    /// Where a conversation was started: cli or desktop.
+    #[arg(long)]
+    pub origin: Option<String>,
     /// Only sessions the desktop has archived.
     #[arg(long)]
     pub archived: bool,
@@ -234,6 +243,16 @@ impl Filters {
             since: self.since.clone(),
             until: self.until.clone(),
             surfaces,
+            origin: match self.origin.as_deref() {
+                None => None,
+                Some("cli") => Some(crate::filter::Origin::Cli),
+                Some("desktop") => Some(crate::filter::Origin::Desktop),
+                Some(other) => {
+                    return Err(crate::Error::Usage(format!(
+                        "unknown origin {other:?}, use cli or desktop"
+                    )));
+                }
+            },
             archived_only: self.archived,
             include_deleted: self.include_deleted,
             include_hidden: self.include_hidden,

@@ -62,6 +62,10 @@ Full reference in [CLI.md](CLI.md).
 - **Ledger before file.** Every write outside the store is recorded with its hash
   before it happens. `off` removes only what still hashes the same, so anything
   Claude rewrote afterwards is kept.
+- **Never guesses an account.** A transcript records none, so where the account
+  is not stated by a desktop entry it is inferred from when the conversation
+  started, marked as an inference, and left out entirely when the evidence
+  disagrees.
 - **Refuses what it does not recognise.** If Claude's layout is not one we
   understand, or the remote transcript backend is on, writes exit 3 and only
   reading remains.
