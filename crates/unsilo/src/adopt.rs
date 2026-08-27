@@ -114,9 +114,9 @@ mod tests {
 
     #[test]
     fn the_host_id_is_derived_so_adopting_twice_is_the_same_entry() {
-        let first = host_id_for("abc");
-        assert_eq!(first, host_id_for("abc"));
-        assert_ne!(first, host_id_for("abd"));
+        let first = host_id_for("session-one");
+        assert_eq!(first, host_id_for("session-one"));
+        assert_ne!(first, host_id_for("session-two"));
         assert!(first.starts_with("local_"));
         assert_eq!(first.len(), "local_".len() + 36);
     }
