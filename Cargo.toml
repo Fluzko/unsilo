@@ -12,6 +12,8 @@ repository = "https://github.com/Fluzko/unsilo"
 [workspace.dependencies]
 unsilo = { path = "crates/unsilo", version = "0.1.0" }
 unsilo-testkit = { path = "crates/unsilo-testkit", version = "0.1.0" }
+anstream = "0.6"
+anstyle = "1"
 camino = { version = "1.1", features = ["serde1"] }
 clap = { version = "4", features = ["derive", "env"] }
 serde = { version = "1", features = ["derive"] }

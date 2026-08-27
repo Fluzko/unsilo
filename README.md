@@ -62,6 +62,8 @@ Full reference in [CLI.md](CLI.md).
 - **Ledger before file.** Every write outside the store is recorded with its hash
   before it happens. `off` removes only what still hashes the same, so anything
   Claude rewrote afterwards is kept.
+- **Colour that turns itself off.** It encodes meaning already present in the
+  text, so stripping it loses nothing, and it never reaches `--json` or a pipe.
 - **Never guesses an account.** A transcript records none, so where the account
   is not stated by a desktop entry it is inferred from when the conversation
   started, marked as an inference, and left out entirely when the evidence

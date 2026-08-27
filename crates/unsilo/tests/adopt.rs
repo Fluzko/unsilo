@@ -175,7 +175,7 @@ fn an_adopted_entry_does_not_pretend_to_prove_the_account() {
     let env = env(&w);
     apply::run(&env, &Filter::default(), &adopting()).unwrap();
     let results = unsilo::ops::find::run(&env, &Filter::default()).unwrap();
-    let text = unsilo::report::find(&results, &w.home);
+    let text = unsilo::report::find(unsilo::style::Style::plain(), &results, &w.home);
 
     // Unsilo put that entry there, so it says nothing about which account owns
     // the conversation. Whatever is known still comes from the inference.

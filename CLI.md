@@ -3,6 +3,18 @@
 This describes what is **implemented**. Where the original design in this document
 changed during implementation, it is marked and explained.
 
+### Global flags
+
+```
+--json                JSON on stdout. Never coloured, whatever --color says
+--color auto|always|never   auto colours a terminal and nothing else
+--ascii               rules and frames in ASCII instead of box drawing
+```
+
+Colour encodes meaning that is already in the text: strip it and nothing is lost.
+`NO_COLOR` is honoured, and `--format paths|resume|json` is never dressed, so it
+stays safe to pipe.
+
 ```
 unsilo doctor
 unsilo find     [query] [filters]

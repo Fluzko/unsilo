@@ -22,6 +22,7 @@ pub mod ops;
 pub mod report;
 pub mod snapshot;
 pub mod store;
+pub mod style;
 
 pub use env::Env;
 pub use error::{Error, Result};

@@ -15,6 +15,34 @@ pub struct Cli {
     /// JSON on stdout, for piping.
     #[arg(long, global = true)]
     pub json: bool,
+
+    /// auto colours a terminal and nothing else. `NO_COLOR` is honoured.
+    #[arg(long, global = true, default_value = "auto", value_name = "WHEN")]
+    pub color: String,
+
+    /// Draw rules and frames with ASCII instead of box drawing characters.
+    #[arg(long, global = true)]
+    pub ascii: bool,
+}
+
+impl Cli {
+    /// Resolved once, from the flags and the environment, and honoured
+    /// everywhere. Structured output is never dressed, whatever was asked for:
+    /// escape codes in something being parsed are worse than no colour at all.
+    pub fn style(&self, is_terminal: bool) -> crate::Result<crate::style::Style> {
+        use crate::style::{ColorChoice, Style};
+        if self.json {
+            return Ok(Style::plain());
+        }
+        let choice = ColorChoice::parse(&self.color).ok_or_else(|| {
+            crate::Error::Usage(format!(
+                "unknown --color {:?}, use auto, always or never",
+                self.color
+            ))
+        })?;
+        let no_color = std::env::var_os("NO_COLOR").is_some();
+        Ok(Style::resolve(choice, no_color, is_terminal, !self.ascii))
+    }
 }
 
 #[derive(Debug, Subcommand)]

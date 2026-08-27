@@ -11,6 +11,8 @@ description = "One view of your Claude Code conversations, whatever account you 
 workspace = true
 
 [dependencies]
+anstream.workspace = true
+anstyle.workspace = true
 camino.workspace = true
 clap.workspace = true
 serde.workspace = true

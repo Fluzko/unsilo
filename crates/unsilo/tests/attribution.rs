@@ -247,7 +247,7 @@ fn an_inference_is_marked_as_one_in_the_listing() {
     let w = world();
     let env = env_at(&w, NOW);
     let results = find::run(&env, &Filter::default()).unwrap();
-    let text = unsilo::report::find(&results, &w.home);
+    let text = unsilo::report::find(unsilo::style::Style::plain(), &results, &w.home);
 
     // A trailing "?" is the whole difference between stated and suspected.
     assert!(text.contains("work@example.com?"), "{text}");
