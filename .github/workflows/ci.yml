@@ -11,7 +11,11 @@ env:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseding a run is right on a branch, where pushes come in bursts and only
+  # the tip matters. On main every commit is meant to be verified, and cancelling
+  # leaves one unverified: a re-run of an older commit can take the slot and kill
+  # the run for a newer one.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   quality:
