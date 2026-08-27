@@ -189,6 +189,31 @@ fn read_oauth(path: &Utf8Path) -> Option<OauthAccount> {
     Some(out)
 }
 
+/// Every moment a config backup can still vouch for.
+///
+/// The file name carries a millisecond timestamp and the contents name the
+/// account that was signed in when it was written, which makes each backup a
+/// dated sighting for free. They rotate quickly, so this reaches back hours
+/// rather than months.
+#[must_use]
+pub fn sightings_from_backups(home: &Utf8Path) -> Vec<crate::attribution::Sighting> {
+    let mut out = Vec::new();
+    for path in config_candidates(home) {
+        let Some(name) = path.file_name() else { continue };
+        let Some(stamp) = name.strip_prefix(BACKUP_PREFIX) else { continue };
+        let Ok(at_ms) = stamp.parse::<i64>() else { continue };
+        let Some(oauth) = read_oauth(&path) else { continue };
+        let (Some(account), Some(org)) = (oauth.account, oauth.org) else { continue };
+        out.push(crate::attribution::Sighting {
+            account,
+            org,
+            at_ms,
+            source: crate::attribution::Source::Backup,
+        });
+    }
+    out
+}
+
 /// The account and organization the desktop is currently reading its session
 /// list from, which is the directory `apply` projects into.
 #[must_use]

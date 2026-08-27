@@ -137,6 +137,11 @@ pub enum Format {
 
 /// The same filters for `find` and `apply`. One type, so previewing with one and
 /// applying with the other cannot drift apart.
+///
+/// The booleans are independent switches over one selection, not a state machine
+/// pretending to be flags, so grouping them into a type would only add a level of
+/// naming.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Default, clap::Args)]
 pub struct Filters {
     /// Account by email. Repeatable.
@@ -184,6 +189,10 @@ pub struct Filters {
     /// Include sidechains, team sessions and daemon sessions.
     #[arg(long)]
     pub include_hidden: bool,
+    /// Only conversations whose account is stated by a desktop entry, never one
+    /// inferred from when the conversation was alive.
+    #[arg(long)]
+    pub confirmed_only: bool,
     /// Show at most this many. Matches are counted before it applies.
     #[arg(long)]
     pub limit: Option<usize>,
@@ -228,6 +237,7 @@ impl Filters {
             archived_only: self.archived,
             include_deleted: self.include_deleted,
             include_hidden: self.include_hidden,
+            confirmed_only: self.confirmed_only,
             query: None,
             limit: self.limit,
             sort,

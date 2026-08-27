@@ -41,6 +41,11 @@ impl Sort {
 }
 
 /// User intent, before any of it is turned into account uuids.
+///
+/// The booleans are independent switches over one selection, not a state machine
+/// pretending to be flags, so grouping them into a type would only add a level of
+/// naming.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Default)]
 pub struct Filter {
     pub emails: Vec<String>,
@@ -58,6 +63,9 @@ pub struct Filter {
     pub archived_only: bool,
     pub include_deleted: bool,
     pub include_hidden: bool,
+    /// Require a desktop entry to prove the account, rather than accepting an
+    /// inference drawn from when the conversation was alive.
+    pub confirmed_only: bool,
     pub query: Option<String>,
     pub limit: Option<usize>,
     pub sort: Sort,
@@ -120,6 +128,7 @@ impl Filter {
             archived_only: self.archived_only,
             include_deleted: self.include_deleted,
             include_hidden: self.include_hidden,
+            confirmed_only: self.confirmed_only,
             query: self.query.clone(),
             limit: self.limit,
             sort: self.sort,
@@ -129,6 +138,7 @@ impl Filter {
 
 /// A filter with every reference turned into something the index can compare.
 #[derive(Debug, Clone, Default)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Resolved {
     pub accounts: Vec<String>,
     pub orgs: Vec<String>,
@@ -144,6 +154,7 @@ pub struct Resolved {
     pub archived_only: bool,
     pub include_deleted: bool,
     pub include_hidden: bool,
+    pub confirmed_only: bool,
     pub query: Option<String>,
     pub limit: Option<usize>,
     pub sort: Sort,

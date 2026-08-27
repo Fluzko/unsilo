@@ -578,9 +578,9 @@ fn write_desktop_entry(dir: &Utf8Path, s: &SessionSpec) {
         "cwd": s.cwd,
         "originCwd": s.cwd,
         "sourceBranch": s.branch.clone().unwrap_or_else(|| "main".to_owned()),
-        "createdAt": 1_787_000_000_000_i64,
-        "lastActivityAt": 1_787_600_000_000_i64,
-        "lastFocusedAt": 1_787_600_000_000_i64,
+        "createdAt": epoch_ms(&s.created),
+        "lastActivityAt": epoch_ms(&s.modified),
+        "lastFocusedAt": epoch_ms(&s.modified),
         "model": s.model,
         "effort": "xhigh",
         "isArchived": false,
@@ -595,6 +595,12 @@ fn write_desktop_entry(dir: &Utf8Path, s: &SessionSpec) {
     if let Ok(bytes) = serde_json::to_vec(&v) {
         write(&dir.join(format!("{}.json", s.host_id())), &bytes);
     }
+}
+
+/// Keeps a desktop entry's timestamps in step with its transcript's, which is
+/// what makes an entry usable as a dated sighting.
+fn epoch_ms(iso: &str) -> i64 {
+    unsilo::claude::time::iso_to_epoch_ms(iso).unwrap_or(0)
 }
 
 fn write_config_json(home: &Utf8Path, b: &WorldBuilder) {

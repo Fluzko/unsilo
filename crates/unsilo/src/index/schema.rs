@@ -98,6 +98,23 @@ pub const MIGRATIONS: &[&str] = &[
     r"
     ALTER TABLE desktop_entry ADD COLUMN projected INTEGER NOT NULL DEFAULT 0;
     ",
+    // 4: a CLI transcript records no account, so the only way to attribute one is
+    // to remember which account was signed in at a given moment and compare. Kept
+    // as discrete sightings rather than merged ranges: appending an observation
+    // can never corrupt an earlier one.
+    r"
+    CREATE TABLE account_sighting (
+        account_uuid    TEXT NOT NULL,
+        org_uuid        TEXT NOT NULL,
+        at_ms           INTEGER NOT NULL,
+        source          TEXT NOT NULL,
+        PRIMARY KEY (account_uuid, org_uuid, at_ms)
+    );
+    CREATE INDEX account_sighting_at ON account_sighting (at_ms);
+
+    ALTER TABLE session ADD COLUMN inferred_account TEXT;
+    ALTER TABLE session ADD COLUMN inferred_org TEXT;
+    ",
 ];
 
 #[must_use]

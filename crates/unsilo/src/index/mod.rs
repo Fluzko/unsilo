@@ -43,6 +43,9 @@ pub struct Row {
     pub hidden_reason: Option<String>,
     /// Every account and organization whose list this session appears in.
     pub scopes: Vec<Scope>,
+    /// The account this conversation probably belongs to, when it has no entry
+    /// to say so outright. Never presented as a fact.
+    pub inferred_account: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -67,6 +70,9 @@ impl Row {
         self.session_id.get(..8).unwrap_or(&self.session_id)
     }
 }
+
+/// A session id with the timestamps needed to place it in time.
+pub type UnattributedSession = (String, Option<i64>, Option<i64>);
 
 #[derive(Debug)]
 pub struct Index {
@@ -145,6 +151,74 @@ impl Index {
             self.conn.execute(&sql, params_from_iter(binds.iter()))?;
         }
         Ok(usize::try_from(self.conn.changes()).unwrap_or(0))
+    }
+
+    pub fn record_sighting(&self, sighting: &crate::attribution::Sighting) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO account_sighting (account_uuid, org_uuid, at_ms, source)
+             VALUES (?1,?2,?3,?4)",
+            params![sighting.account, sighting.org, sighting.at_ms, sighting.source.as_str()],
+        )?;
+        Ok(())
+    }
+
+    pub fn sightings(&self) -> Result<Vec<crate::attribution::Sighting>> {
+        use crate::attribution::{Sighting, Source};
+        let mut stmt = self.conn.prepare(
+            "SELECT account_uuid, org_uuid, at_ms, source FROM account_sighting ORDER BY at_ms",
+        )?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok(Sighting {
+                    account: r.get(0)?,
+                    org: r.get(1)?,
+                    at_ms: r.get(2)?,
+                    source: Source::parse(&r.get::<_, String>(3)?).unwrap_or(Source::Observed),
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    /// Sessions with no desktop entry anywhere, which are the only ones an
+    /// inference is needed for.
+    pub fn unattributed_sessions(&self) -> Result<Vec<UnattributedSession>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT s.session_id, s.created_at_ms, s.modified_at_ms FROM session s
+             WHERE NOT EXISTS (SELECT 1 FROM desktop_entry d WHERE d.session_id = s.session_id)",
+        )?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    pub fn set_inferred(&self, session_id: &str, account: &str, org: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE session SET inferred_account = ?2, inferred_org = NULLIF(?3, '')
+             WHERE session_id = ?1",
+            params![session_id, account, org],
+        )?;
+        Ok(())
+    }
+
+    pub fn clear_inferences(&self) -> Result<()> {
+        self.conn.execute("UPDATE session SET inferred_account = NULL, inferred_org = NULL", [])?;
+        Ok(())
+    }
+
+    /// `(attributed, total)` over the sessions that need an inference at all.
+    pub fn attribution_coverage(&self) -> Result<(usize, usize)> {
+        let row: (i64, i64) = self.conn.query_row(
+            "SELECT
+                COUNT(*) FILTER (WHERE s.inferred_account IS NOT NULL),
+                COUNT(*)
+             FROM session s
+             WHERE NOT EXISTS (SELECT 1 FROM desktop_entry d WHERE d.session_id = s.session_id)",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        Ok((usize::try_from(row.0).unwrap_or(0), usize::try_from(row.1).unwrap_or(0)))
     }
 
     pub fn origin_dir_of(&self, session_id: &str) -> Result<Option<Utf8PathBuf>> {
@@ -368,6 +442,7 @@ impl Index {
                     modified_at_ms: r.get(8)?,
                     size_bytes: r.get(9)?,
                     hidden_reason: r.get(10)?,
+                    inferred_account: r.get(11)?,
                     scopes: Vec::new(),
                 })
             })?
@@ -467,6 +542,47 @@ impl Index {
     }
 }
 
+/// Everything that narrows by where a conversation can be seen: account,
+/// organization, surface, model, archived.
+fn push_scope_predicates(
+    filter: &Resolved,
+    where_sql: &mut Vec<String>,
+    bind: &mut impl FnMut(rusqlite::types::Value) -> usize,
+) {
+    if !filter.accounts.is_empty() {
+        // Match where a session came from, not where Unsilo made it visible. An
+        // inference has no desktop row at all, so it is a separate branch.
+        let confirmed = in_clause("d.account_uuid", &filter.accounts, bind)
+            .map(|c| format!("({c} AND d.projected = 0)"));
+        let inferred = if filter.confirmed_only {
+            None
+        } else {
+            in_clause("s.inferred_account", &filter.accounts, bind)
+        };
+        let branches: Vec<String> = [confirmed, inferred].into_iter().flatten().collect();
+        if !branches.is_empty() {
+            where_sql.push(format!("({})", branches.join(" OR ")));
+        }
+    }
+    if let Some(clause) = in_clause("d.org_uuid", &filter.orgs, bind) {
+        where_sql.push(clause);
+    }
+    if let Some(clause) = in_clause(
+        "d.surface",
+        &filter.surfaces.iter().map(|s| surface_name(*s).to_owned()).collect::<Vec<_>>(),
+        bind,
+    ) {
+        where_sql.push(clause);
+    }
+    if let Some(model) = &filter.model {
+        let i = bind(format!("%{model}%").into());
+        where_sql.push(format!("d.model LIKE ?{i}"));
+    }
+    if filter.archived_only {
+        where_sql.push("d.is_archived = 1".to_owned());
+    }
+}
+
 /// Assembles the statement from a fixed set of fragments with bound parameters.
 /// No user text ever reaches the statement text.
 fn build_query(filter: &Resolved) -> (String, Vec<rusqlite::types::Value>) {
@@ -514,28 +630,7 @@ fn build_query(filter: &Resolved) -> (String, Vec<rusqlite::types::Value>) {
             "s.session_id IN (SELECT session_id FROM session_fts WHERE session_fts MATCH ?{i})"
         ));
     }
-    if let Some(clause) = in_clause("d.account_uuid", &filter.accounts, &mut bind) {
-        where_sql.push(clause);
-        // Match where a session came from, not where Unsilo made it visible.
-        where_sql.push("d.projected = 0".to_owned());
-    }
-    if let Some(clause) = in_clause("d.org_uuid", &filter.orgs, &mut bind) {
-        where_sql.push(clause);
-    }
-    if let Some(clause) = in_clause(
-        "d.surface",
-        &filter.surfaces.iter().map(|s| surface_name(*s).to_owned()).collect::<Vec<_>>(),
-        &mut bind,
-    ) {
-        where_sql.push(clause);
-    }
-    if let Some(model) = &filter.model {
-        let i = bind(format!("%{model}%").into());
-        where_sql.push(format!("d.model LIKE ?{i}"));
-    }
-    if filter.archived_only {
-        where_sql.push("d.is_archived = 1".to_owned());
-    }
+    push_scope_predicates(filter, &mut where_sql, &mut bind);
     if !filter.include_deleted {
         where_sql.push(
             "NOT EXISTS (SELECT 1 FROM tombstone t
@@ -546,7 +641,7 @@ fn build_query(filter: &Resolved) -> (String, Vec<rusqlite::types::Value>) {
     }
 
     // A LEFT JOIN keeps CLI-born sessions, which have no desktop entry at all.
-    let joins_desktop = !filter.accounts.is_empty()
+    let joins_desktop = (!filter.accounts.is_empty() && filter.confirmed_only)
         || !filter.orgs.is_empty()
         || !filter.surfaces.is_empty()
         || filter.model.is_some()
@@ -556,7 +651,7 @@ fn build_query(filter: &Resolved) -> (String, Vec<rusqlite::types::Value>) {
     let mut sql = format!(
         "SELECT DISTINCT s.session_id, s.cwd, s.project_slug, s.origin_dir, s.git_branch,
                     s.title, s.first_prompt, s.created_at_ms, s.modified_at_ms, s.size_bytes,
-                    s.hidden_reason
+                    s.hidden_reason, s.inferred_account
              FROM session s {join} desktop_entry d ON d.session_id = s.session_id"
     );
     if !where_sql.is_empty() {

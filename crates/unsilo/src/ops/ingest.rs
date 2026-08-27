@@ -4,7 +4,8 @@
 //! remember to run it. Writes only inside the store: transcripts stay where
 //! Claude put them.
 
-use crate::claude::identity::Identities;
+use crate::attribution::{self, Activity, Sighting};
+use crate::claude::identity::{self, Identities};
 use crate::claude::{desktop, transcript};
 use crate::env::Env;
 use crate::error::Result;
@@ -28,6 +29,10 @@ pub struct Summary {
     /// Sessions whose transcript is gone from its project dir but survives in
     /// the store.
     pub recovered_from_store: usize,
+    /// Moments at which some account was known to be signed in.
+    pub sightings: usize,
+    /// `(attributed, needing attribution)` over CLI-born conversations.
+    pub attributed: (usize, usize),
     pub unreadable: Vec<String>,
 }
 
@@ -119,6 +124,8 @@ pub fn run(env: &Env, index: &Index) -> Result<Summary> {
     summary.recovered_from_store = index.forget_unseen(now, &kept_from_store)?;
 
     index.mark_projected_entries()?;
+    summary.sightings = record_sightings(env, index, now)?;
+    summary.attributed = attribute(index)?;
 
     let path = env.unsilo_home.join("identities.json");
     let mut identities = Identities::load(&path)?;
@@ -128,6 +135,59 @@ pub fn run(env: &Env, index: &Index) -> Result<Summary> {
     }
 
     Ok(summary)
+}
+
+/// Remembers which account was signed in, so a conversation that records none can
+/// be placed later.
+///
+/// Three sources, all cheap. What is signed in now. What Claude's rotating config
+/// backups still show, which reaches a little way back. And the timestamps of
+/// every desktop entry, since an entry names its own account, which reaches back
+/// as far as the desktop sessions go.
+fn record_sightings(env: &Env, index: &Index, now: i64) -> Result<usize> {
+    let mut sightings: Vec<Sighting> = Vec::new();
+
+    if let Some(active) = identity::active(&env.home) {
+        sightings.push(Sighting {
+            account: active.account,
+            org: active.org,
+            at_ms: now,
+            source: attribution::Source::Observed,
+        });
+    }
+    sightings.extend(identity::sightings_from_backups(&env.home));
+
+    for root in &env.user_data {
+        for entry in desktop::inventory(root).entries {
+            for at_ms in [entry.created_at_ms, entry.last_activity_ms].into_iter().flatten() {
+                sightings.push(Sighting {
+                    account: entry.scope.account.clone(),
+                    org: entry.scope.org.clone(),
+                    at_ms,
+                    source: attribution::Source::Entry,
+                });
+            }
+        }
+    }
+
+    for sighting in &sightings {
+        index.record_sighting(sighting)?;
+    }
+    Ok(index.sightings()?.len())
+}
+
+/// Recomputed from scratch every run: sightings only ever accumulate, so an
+/// inference can become possible, or become ambiguous, as more is known.
+fn attribute(index: &Index) -> Result<(usize, usize)> {
+    let sightings = index.sightings()?;
+    index.clear_inferences()?;
+    for (session_id, created_at_ms, modified_at_ms) in index.unattributed_sessions()? {
+        let activity = Activity { created_at_ms, modified_at_ms };
+        if let Some((account, org)) = attribution::infer(activity, &sightings) {
+            index.set_inferred(&session_id, &account, &org)?;
+        }
+    }
+    index.attribution_coverage()
 }
 
 /// The identity map after ingest, which the filter needs to turn an email into

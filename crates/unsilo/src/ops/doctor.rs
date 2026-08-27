@@ -94,6 +94,9 @@ pub struct Report {
     pub unresolved_accounts: Vec<String>,
     pub linked_entries: usize,
     pub total_entries: usize,
+    /// `(attributed, needing attribution)` over conversations with no desktop
+    /// entry to state their account.
+    pub attribution: (usize, usize),
     pub tail_unresolved: usize,
     /// Session uuids found in more than one project directory, with their dirs.
     pub duplicate_locations: Vec<(String, Vec<String>)>,
@@ -242,6 +245,17 @@ pub fn run(env: &Env) -> Result<Report> {
         .filter(|e| e.cli_session_id.as_ref().is_some_and(|id| scanned.ids.contains(id)))
         .count();
 
+    // Doctor only reads, so it reports the coverage the last ingest produced
+    // rather than recomputing one, and it will not bring an index into existence
+    // just to ask. Opening one creates the file.
+    let coverage = if env.index_path().exists() {
+        crate::index::Index::open(&env.index_path())
+            .and_then(|index| index.attribution_coverage())
+            .unwrap_or((0, 0))
+    } else {
+        (0, 0)
+    };
+
     let compat = fingerprint.compat();
     push_environment_problems(env, &compat, &mut problems);
     match &compat {
@@ -295,6 +309,7 @@ pub fn run(env: &Env) -> Result<Report> {
         unresolved_accounts: unresolved,
         linked_entries,
         total_entries: inventory.entries.len(),
+        attribution: coverage,
         tail_unresolved: scanned.tail_unresolved,
         duplicate_locations,
         store,

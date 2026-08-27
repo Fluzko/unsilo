@@ -8,6 +8,7 @@
     html_favicon_url = "https://raw.githubusercontent.com/Fluzko/unsilo/main/assets/logo.svg"
 )]
 
+pub mod attribution;
 pub mod claude;
 pub mod cli;
 pub mod env;

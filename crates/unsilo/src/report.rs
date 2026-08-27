@@ -135,6 +135,17 @@ fn transcripts_section(r: &Report, out: &mut String) {
         let _ = writeln!(out, "  subagents           {}", r.subagents());
     }
     let _ = writeln!(out, "  with desktop entry  {} of {}", r.linked_entries, r.total_entries);
+    let (attributed, needing) = r.attribution;
+    if needing > 0 {
+        let _ = writeln!(
+            out,
+            "  cli born            {needing}, of which {attributed} attributed by timestamp"
+        );
+        let _ = writeln!(
+            out,
+            "                      (a transcript records no account; attribution grows with use)"
+        );
+    }
     if r.tail_unresolved > 0 {
         let _ = writeln!(out, "  tail unresolved     {}", r.tail_unresolved);
     }
@@ -233,17 +244,16 @@ pub fn find(results: &crate::ops::find::Results, home: &camino::Utf8Path) -> Str
     );
     for row in &results.rows {
         let date = row.modified_at_ms.map_or_else(|| "?".to_owned(), iso_date);
-        let account = row.scopes.first().map_or_else(
-            || "(cli only)".to_owned(),
-            |scope| {
-                results
-                    .identities
-                    .emails
-                    .get(&scope.account)
-                    .cloned()
-                    .unwrap_or_else(|| short(&scope.account).to_owned())
-            },
-        );
+        let name_of = |uuid: &str| {
+            results.identities.emails.get(uuid).cloned().unwrap_or_else(|| short(uuid).to_owned())
+        };
+        // A trailing "?" is the whole difference between what an entry states and
+        // what the timestamps suggest.
+        let account = match (row.scopes.first(), &row.inferred_account) {
+            (Some(scope), _) => name_of(&scope.account),
+            (None, Some(inferred)) => format!("{}?", name_of(inferred)),
+            (None, None) => "(cli only)".to_owned(),
+        };
         let title = row.display_title().unwrap_or("(untitled)").replace(['\n', '\r'], " ");
         let _ = writeln!(
             out,
