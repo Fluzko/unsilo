@@ -45,9 +45,9 @@ jobs:
 
       - run: cargo build --release --locked --target ${{ matrix.target }} -p unsilo
 
-      # A binary that cannot start is not a release artifact.
+      # A binary that cannot start is not a release artifact. Every target here
+      # is built natively, so every one of them can be run.
       - name: Smoke test
-        if: matrix.os != 'macos-13'
         shell: bash
         run: |
           BIN="target/${{ matrix.target }}/release/unsilo"

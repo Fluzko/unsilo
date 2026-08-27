@@ -36,6 +36,35 @@ $ unsilo off
   store untouched: 132 transcripts. unsilo apply to turn it back on
 ```
 
+## Install
+
+Download the archive for your platform from the
+[latest release](https://github.com/Fluzko/unsilo/releases/latest), then put the
+binary somewhere on your `PATH`:
+
+```bash
+tar -xzf unsilo-aarch64-apple-darwin.tar.gz
+install -m 755 unsilo-aarch64-apple-darwin/unsilo /usr/local/bin/unsilo
+```
+
+Each archive ships a `.sha256` beside it if you want to check it first.
+
+Or build from source, which needs nothing but a Rust toolchain because SQLite is
+compiled in:
+
+```bash
+cargo install --git https://github.com/Fluzko/unsilo unsilo
+```
+
+Then, before anything else:
+
+```bash
+unsilo doctor
+```
+
+It writes nothing and tells you what it found, including whether writing would be
+safe on your machine.
+
 ## Commands
 
 |                   |                                                                               |
