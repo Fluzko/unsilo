@@ -9,6 +9,10 @@ rust-version = "1.85"
 license = "MIT"
 repository = "https://github.com/Fluzko/unsilo"
 homepage = "https://github.com/Fluzko/unsilo"
+# Unversioned on purpose. This value is baked into each published version, so a
+# link to /0.1.0 would still point at 0.1.0 from the 0.2.0 page. docs.rs
+# redirects this to the newest build and shows a version picker there.
+documentation = "https://docs.rs/unsilo"
 readme = "README.md"
 keywords = ["claude", "claude-code", "conversations", "cli", "sessions"]
 categories = ["command-line-utilities", "development-tools"]
